@@ -1,6 +1,6 @@
 import streamlit as st
-import cv2      
-import numpy as np    
+import cv2
+import numpy as np
 import tensorflow as tf
 import time
 import os
@@ -43,7 +43,8 @@ def evaluate_model():
         if uploaded_file is not None:
             # Convert the file to an OpenCV image.
             file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-            gt = cv2.imdecode(file_bytes, 1)
+            gt = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            gt = cv2.cvtColor(gt, cv2.COLOR_BGR2RGB)  # Ensure RGB format
             prediction_ui(gt, model_choice)
           
     if choice == "Use Existing Images":
@@ -52,6 +53,7 @@ def evaluate_model():
         if image_file_chosen:
             images_path = os.path.join(os.getcwd(), 'images')
             gt = cv2.imread(os.path.join(images_path, image_file_chosen))
+            gt = cv2.cvtColor(gt, cv2.COLOR_BGR2RGB)  # Ensure RGB format
             prediction_ui(gt, model_choice)
 
 def get_list_of_images():
@@ -122,9 +124,10 @@ def get_patches(image):
     return np.array(patches)
 
 def get_image(gt, noise_level):
-    gt = cv2.cvtColor(gt, cv2.COLOR_BGR2RGB)
+    gt = cv2.cvtColor(gt, cv2.COLOR_RGB2BGR)  # Convert back to BGR for consistency
     noise = np.random.normal(0, noise_level, gt.shape)
     noisy_image = np.clip(gt + noise, 0, 255).astype(np.uint8)
+    noisy_image = cv2.cvtColor(noisy_image, cv2.COLOR_BGR2RGB)  # Convert to RGB for display
     patches_noisy = get_patches(noisy_image)
     return gt, noisy_image, patches_noisy
 
@@ -168,13 +171,14 @@ def predict_fun(model, patches_noisy, gt, model_choice):
                 progress_bar.progress(index / total_patches)
 
     denoised_image = np.clip(denoised_image, 0, 255).astype(np.uint8)
+    denoised_image = cv2.cvtColor(denoised_image, cv2.COLOR_BGR2RGB)  # Convert to RGB for display
     progress_bar.empty()  # Remove the progress bar after completion
     return denoised_image
 
-def PSNR(original, compressed):
-    mse = np.mean((original - compressed) ** 2)
+def PSNR(original, denoised):
+    mse = np.mean((original - denoised) ** 2)
     if mse == 0:
-        return 100
+        return float('inf')
     return 20 * np.log10(255.0 / np.sqrt(mse))
 
 if __name__ == "__main__":
